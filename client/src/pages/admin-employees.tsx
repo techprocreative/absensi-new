@@ -16,23 +16,31 @@ import {
 } from "@/components/ui/table";
 import { Search, Plus, Edit, Trash2, Camera } from "lucide-react";
 import { Link } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { employeeApi } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { EmployeeFormModal } from "@/components/employee-form-modal";
+import { FaceRegistrationModal } from "@/components/face-registration-modal";
 
 export default function AdminEmployees() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
+  const [faceModalOpen, setFaceModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const { toast } = useToast();
 
-  const { data: employees, isLoading } = useQuery({
-    queryKey: ["/api/employees"],
+  const { data: employees = [], isLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => employeeApi.getAll(true),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/employees/${id}`, undefined);
+      return await employeeApi.delete(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
       toast({
         title: "Berhasil",
         description: "Karyawan berhasil dihapus",
@@ -63,6 +71,23 @@ export default function AdminEmployees() {
     }
   };
 
+  const handleAddEmployee = () => {
+    setModalMode("add");
+    setSelectedEmployee(null);
+    setEmployeeModalOpen(true);
+  };
+
+  const handleEditEmployee = (employee: any) => {
+    setModalMode("edit");
+    setSelectedEmployee(employee);
+    setEmployeeModalOpen(true);
+  };
+
+  const handleRegisterFace = (employee: any) => {
+    setSelectedEmployee(employee);
+    setFaceModalOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -70,6 +95,10 @@ export default function AdminEmployees() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Kelola Karyawan</h1>
           <p className="text-muted-foreground">Manajemen data karyawan dan registrasi wajah</p>
         </div>
+        <Button onClick={handleAddEmployee} data-testid="button-add-employee">
+          <Plus className="w-4 h-4 mr-2" />
+          Tambah Karyawan
+        </Button>
       </div>
 
       <Card>
@@ -136,6 +165,7 @@ export default function AdminEmployees() {
                           size="icon" 
                           variant="ghost" 
                           data-testid={`button-register-face-${employee.id}`}
+                          onClick={() => handleRegisterFace(employee)}
                           title="Registrasi Wajah"
                         >
                           <Camera className="w-4 h-4" />
@@ -144,6 +174,7 @@ export default function AdminEmployees() {
                           size="icon" 
                           variant="ghost" 
                           data-testid={`button-edit-${employee.id}`}
+                          onClick={() => handleEditEmployee(employee)}
                           title="Edit"
                         >
                           <Edit className="w-4 h-4" />
@@ -172,6 +203,20 @@ export default function AdminEmployees() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <EmployeeFormModal
+        open={employeeModalOpen}
+        onOpenChange={setEmployeeModalOpen}
+        employee={selectedEmployee}
+        mode={modalMode}
+      />
+
+      <FaceRegistrationModal
+        open={faceModalOpen}
+        onOpenChange={setFaceModalOpen}
+        employee={selectedEmployee}
+      />
     </div>
   );
 }

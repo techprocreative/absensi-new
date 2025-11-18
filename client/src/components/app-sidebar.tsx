@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 interface AppSidebarProps {
-  role: "admin" | "hrd" | "employee";
+  role: "admin" | "hrd" | "employee" | "salesman";
   userName?: string;
   onLogout?: () => void;
 }
@@ -43,8 +43,27 @@ export function AppSidebar({ role, userName = "User", onLogout }: AppSidebarProp
     { title: "Jadwal Saya", url: "/employee/schedule", icon: Calendar },
   ];
 
-  const items = role === "admin" ? adminItems : role === "hrd" ? hrdItems : employeeItems;
-  const roleLabel = role === "admin" ? "Administrator" : role === "hrd" ? "HRD" : "Karyawan";
+  const salesmanItems = [
+    { title: "Dashboard", url: "/salesman", icon: Home },
+  ];
+
+  const items =
+    role === "admin"
+      ? adminItems
+      : role === "hrd"
+      ? hrdItems
+      : role === "salesman"
+      ? salesmanItems
+      : employeeItems;
+
+  const roleLabel =
+    role === "admin"
+      ? "Administrator"
+      : role === "hrd"
+      ? "HRD"
+      : role === "salesman"
+      ? "Salesman"
+      : "Karyawan";
 
   const getInitials = (name: string) => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);

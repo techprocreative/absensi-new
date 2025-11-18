@@ -16,9 +16,12 @@ import AdminSchedules from "@/pages/admin-schedules";
 import AdminReports from "@/pages/admin-reports";
 import HRDDashboard from "@/pages/hrd-dashboard";
 import EmployeeDashboard from "@/pages/employee-dashboard";
+import EmployeeHistory from "@/pages/employee-history";
+import EmployeeSchedule from "@/pages/employee-schedule";
+import SalesmanDashboard from "@/pages/salesman-dashboard";
 
 type DashboardLayoutProps = {
-  role: "admin" | "hrd" | "employee";
+  role: "admin" | "hrd" | "employee" | "salesman";
   children: React.ReactNode;
 };
 
@@ -87,8 +90,21 @@ function EmployeeRoutes() {
       <DashboardLayout role="employee">
         <Switch>
           <Route path="/employee" component={EmployeeDashboard} />
-          <Route path="/employee/history" component={EmployeeDashboard} />
-          <Route path="/employee/schedule" component={EmployeeDashboard} />
+          <Route path="/employee/history" component={EmployeeHistory} />
+          <Route path="/employee/schedule" component={EmployeeSchedule} />
+          <Route component={NotFound} />
+        </Switch>
+      </DashboardLayout>
+    </RequireAuth>
+  );
+}
+
+function SalesmanRoutes() {
+  return (
+    <RequireAuth allowedRoles={["salesman"]}>
+      <DashboardLayout role="salesman">
+        <Switch>
+          <Route path="/salesman" component={SalesmanDashboard} />
           <Route component={NotFound} />
         </Switch>
       </DashboardLayout>
@@ -109,6 +125,10 @@ function Router() {
 
   if (location.startsWith("/employee")) {
     return <EmployeeRoutes />;
+  }
+
+  if (location.startsWith("/salesman")) {
+    return <SalesmanRoutes />;
   }
 
   return (

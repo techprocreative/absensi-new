@@ -5,13 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Coffee, LogOut, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, Coffee, LogOut, CheckCircle2, AlertCircle, Loader2, Shield } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { attendanceApi } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
   const [recognizedEmployee, setRecognizedEmployee] = useState<any>(null);
@@ -24,6 +33,19 @@ export default function Landing() {
     return () => clearInterval(timer);
   }, []);
 
+  // Keyboard shortcut for login (Ctrl+L or Cmd+L)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault();
+        setLocation('/login');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [setLocation]);
+
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(null), 5000);
@@ -33,10 +55,7 @@ export default function Landing() {
 
   const recognizeMutation = useMutation({
     mutationFn: async (descriptor: Float32Array) => {
-      const response = await apiRequest("POST", "/api/attendance/recognize", {
-        descriptor: Array.from(descriptor)
-      });
-      return response;
+      return await attendanceApi.recognize(Array.from(descriptor));
     },
     onSuccess: (data) => {
       setRecognizedEmployee(data.employee);
@@ -51,13 +70,13 @@ export default function Landing() {
 
   const checkInMutation = useMutation({
     mutationFn: async (employeeId: string) => {
-      return await apiRequest("POST", "/api/attendance/checkin", { employeeId });
+      return await attendanceApi.checkIn(employeeId);
     },
     onSuccess: (data) => {
       setTodayAttendance(data);
       setMessage({ type: "success", text: "Check-in berhasil!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/statistics"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
     },
     onError: (error: any) => {
       setMessage({ type: "error", text: error.message || "Gagal melakukan check-in" });
@@ -66,12 +85,12 @@ export default function Landing() {
 
   const breakStartMutation = useMutation({
     mutationFn: async (employeeId: string) => {
-      return await apiRequest("POST", "/api/attendance/break-start", { employeeId });
+      return await attendanceApi.breakStart(employeeId);
     },
     onSuccess: (data) => {
       setTodayAttendance(data);
       setMessage({ type: "success", text: "Selamat istirahat!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
     },
     onError: (error: any) => {
       setMessage({ type: "error", text: error.message || "Gagal memulai istirahat" });
@@ -80,12 +99,12 @@ export default function Landing() {
 
   const breakEndMutation = useMutation({
     mutationFn: async (employeeId: string) => {
-      return await apiRequest("POST", "/api/attendance/break-end", { employeeId });
+      return await attendanceApi.breakEnd(employeeId);
     },
     onSuccess: (data) => {
       setTodayAttendance(data);
       setMessage({ type: "success", text: "Selamat bekerja kembali!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
     },
     onError: (error: any) => {
       setMessage({ type: "error", text: error.message || "Gagal mengakhiri istirahat" });
@@ -94,13 +113,13 @@ export default function Landing() {
 
   const checkOutMutation = useMutation({
     mutationFn: async (employeeId: string) => {
-      return await apiRequest("POST", "/api/attendance/checkout", { employeeId });
+      return await attendanceApi.checkOut(employeeId);
     },
     onSuccess: (data) => {
       setTodayAttendance(data);
       setMessage({ type: "success", text: "Check-out berhasil! Terima kasih atas kerja keras Anda hari ini." });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/statistics"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
     },
     onError: (error: any) => {
       setMessage({ type: "error", text: error.message || "Gagal melakukan check-out" });
@@ -175,7 +194,28 @@ export default function Landing() {
             <h1 className="text-2xl font-bold text-foreground">Absensi Karyawan</h1>
             <p className="text-sm text-muted-foreground">Face Recognition System</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation('/login')}
+                    className="gap-2"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span className="hidden sm:inline">Login Staff</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Login untuk Admin, HRD, atau Employee</p>
+                  <p className="text-xs text-muted-foreground mt-1">Shortcut: Ctrl+L</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

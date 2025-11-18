@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,26 +13,33 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Edit, Trash2 } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { scheduleApi, employeeApi } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ScheduleFormModal } from "@/components/schedule-form-modal";
 
 export default function AdminSchedules() {
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const { toast } = useToast();
 
-  const { data: schedules, isLoading } = useQuery({
-    queryKey: ["/api/schedules"],
+  const { data: schedules = [], isLoading } = useQuery({
+    queryKey: ["schedules"],
+    queryFn: () => scheduleApi.getAll(),
   });
 
-  const { data: employees } = useQuery({
-    queryKey: ["/api/employees"],
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => employeeApi.getAll(),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/schedules/${id}`, undefined);
+      return await scheduleApi.delete(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
       toast({
         title: "Berhasil",
         description: "Jadwal berhasil dihapus",
@@ -80,6 +88,18 @@ export default function AdminSchedules() {
     }
   };
 
+  const handleAddSchedule = () => {
+    setModalMode("add");
+    setSelectedSchedule(null);
+    setScheduleModalOpen(true);
+  };
+
+  const handleEditSchedule = (schedule: any) => {
+    setModalMode("edit");
+    setSelectedSchedule(schedule);
+    setScheduleModalOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -87,7 +107,7 @@ export default function AdminSchedules() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Jadwal Karyawan</h1>
           <p className="text-muted-foreground">Kelola jadwal shift dan hari kerja karyawan</p>
         </div>
-        <Button data-testid="button-add-schedule">
+        <Button onClick={handleAddSchedule} data-testid="button-add-schedule">
           <Plus className="w-4 h-4 mr-2" />
           Tambah Jadwal
         </Button>
@@ -128,7 +148,12 @@ export default function AdminSchedules() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
-                        <Button size="icon" variant="ghost" data-testid={`button-edit-${schedule.id}`}>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          data-testid={`button-edit-${schedule.id}`}
+                          onClick={() => handleEditSchedule(schedule)}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
@@ -174,6 +199,14 @@ export default function AdminSchedules() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal */}
+      <ScheduleFormModal
+        open={scheduleModalOpen}
+        onOpenChange={setScheduleModalOpen}
+        schedule={selectedSchedule}
+        mode={modalMode}
+      />
     </div>
   );
 }

@@ -14,14 +14,17 @@ import {
 import { Download, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { attendanceApi, reportsApi } from "@/lib/api";
 
 export default function AdminReports() {
-  const { data: attendances, isLoading } = useQuery({
-    queryKey: ["/api/attendance"],
+  const { data: attendances = [], isLoading } = useQuery({
+    queryKey: ["attendance"],
+    queryFn: () => attendanceApi.getAll(),
   });
 
   const { data: stats } = useQuery({
-    queryKey: ["/api/reports/statistics"],
+    queryKey: ["statistics"],
+    queryFn: () => reportsApi.getStatistics(),
   });
 
   const getStatusBadge = (status: string) => {

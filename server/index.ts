@@ -1,20 +1,61 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { 
+  helmetMiddleware, 
+  corsMiddleware, 
+  generalRateLimiter,
+} from "./middleware/security";
+import { errorHandler } from "./middleware/errorHandler";
+import { 
+  requestIdMiddleware, 
+  requestLoggerMiddleware,
+  sanitizeRequestBody 
+} from "./middleware/requestLogger";
+import { setupSwagger } from "./docs/swagger";
+import { registerHealthRoutes } from "./routes/health";
+import logger from "./utils/logger";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
+
+// Request ID and logging
+app.use(requestIdMiddleware);
+app.use(requestLoggerMiddleware);
+
+// Security middleware
+app.use(helmetMiddleware);
+app.use(corsMiddleware);
+
+// Compression
+app.use(compression());
 
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
   }
 }
+
+// Body parsing
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+app.use(sanitizeRequestBody);
+
+// Rate limiting
+app.use("/api", generalRateLimiter);
+
+// API Documentation
+setupSwagger(app);
+
+// Health check endpoints (before API routes)
+registerHealthRoutes(app);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -49,13 +90,8 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Error handling middleware (must be last)
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -76,6 +112,11 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
+    logger.info(`🚀 FaceAttend API Server started`);
+    logger.info(`📍 Server: http://0.0.0.0:${port}`);
+    logger.info(`📚 API Docs: http://localhost:${port}/api-docs`);
+    logger.info(`🏥 Health Check: http://localhost:${port}/health`);
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
     log(`serving on port ${port}`);
   });
 })();
