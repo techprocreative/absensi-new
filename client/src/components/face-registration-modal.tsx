@@ -27,6 +27,33 @@ type CapturedDescriptor = {
   confidence: number;
 };
 
+const captureSequence = [
+  {
+    label: "Depan",
+    description: "Hadap lurus ke kamera dengan ekspresi netral",
+  },
+  {
+    label: "Sedikit Kiri",
+    description: "Putar kepala ~20° ke kiri, mata tetap ke kamera",
+  },
+  {
+    label: "Sedikit Kanan",
+    description: "Putar kepala ~20° ke kanan",
+  },
+  {
+    label: "Miring Atas",
+    description: "Angkat dagu sedikit untuk menangkap sudut atas",
+  },
+  {
+    label: "Miring Bawah",
+    description: "Turunkan dagu sedikit, tetap terlihat di kamera",
+  },
+  {
+    label: "Ekspresi Santai",
+    description: "Tersenyum ringan sembari menghadap kamera",
+  },
+];
+
 export function FaceRegistrationModal({
   open,
   onOpenChange,
@@ -43,8 +70,12 @@ export function FaceRegistrationModal({
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string>("");
 
-  const targetCaptures = 3;
+  const targetCaptures = captureSequence.length;
   const progress = (capturedDescriptors.length / targetCaptures) * 100;
+  const nextPose = captureSequence[capturedDescriptors.length];
+  const captureButtonLabel = nextPose
+    ? `Ambil Foto ${capturedDescriptors.length + 1}/${targetCaptures} - ${nextPose.label}`
+    : `Ambil Foto ${capturedDescriptors.length + 1}/${targetCaptures}`;
 
   const registerMutation = useMutation({
     mutationFn: (descriptors: CapturedDescriptor[]) =>
@@ -140,6 +171,11 @@ export function FaceRegistrationModal({
 
     setIsCapturing(true);
     setError("");
+    const poseIndex = Math.min(
+      capturedDescriptors.length,
+      captureSequence.length - 1,
+    );
+    const currentPose = captureSequence[poseIndex];
 
     try {
       const detection = await faceapi
@@ -148,10 +184,12 @@ export function FaceRegistrationModal({
         .withFaceDescriptor();
 
       if (!detection) {
-        setError("Wajah tidak terdeteksi. Posisikan wajah di depan kamera.");
+        setError(
+          `Wajah tidak terdeteksi. Ikuti panduan langkah ${poseIndex + 1}: ${currentPose?.description ?? "Posisikan wajah di depan kamera."}`,
+        );
         toast({
           title: "Wajah Tidak Terdeteksi",
-          description: "Posisikan wajah Anda di depan kamera",
+          description: currentPose?.description ?? "Posisikan wajah Anda di depan kamera",
           variant: "destructive",
         });
         setIsCapturing(false);
@@ -183,7 +221,7 @@ export function FaceRegistrationModal({
 
       toast({
         title: "Berhasil!",
-        description: `Foto ${capturedDescriptors.length + 1}/${targetCaptures} berhasil diambil`,
+        description: `Foto ${capturedDescriptors.length + 1}/${targetCaptures} (${currentPose?.label ?? "Pose"}) berhasil diambil`,
       });
     } catch (err) {
       console.error("Error capturing face:", err);
@@ -275,17 +313,65 @@ export function FaceRegistrationModal({
               <span className="font-medium">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="h-2" />
+            {nextPose && capturedDescriptors.length < targetCaptures && (
+              <div className="rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2 text-sm">
+                <p className="font-medium text-primary">Langkah berikutnya: {nextPose.label}</p>
+                <p className="text-xs text-muted-foreground">{nextPose.description}</p>
+              </div>
+            )}
           </div>
 
           {/* Instructions */}
-          <div className="bg-muted p-4 rounded-lg space-y-2">
-            <p className="font-medium text-sm">Instruksi:</p>
-            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Pastikan pencahayaan cukup</li>
-              <li>Posisikan wajah di tengah kamera</li>
-              <li>Tatap kamera dengan jelas</li>
-              <li>Ambil {targetCaptures} foto dari berbagai sudut sedikit</li>
-            </ol>
+          <div className="bg-muted p-4 rounded-lg space-y-3">
+            <div>
+              <p className="font-medium text-sm">Panduan Registrasi Multi-sudut</p>
+              <p className="text-xs text-muted-foreground">
+                Ikuti urutan di bawah agar sistem mengenali wajah dengan konsisten.
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {captureSequence.map((pose, index) => {
+                const status =
+                  index < capturedDescriptors.length
+                    ? "completed"
+                    : index === capturedDescriptors.length
+                    ? "current"
+                    : "pending";
+                const indicatorClass =
+                  status === "completed"
+                    ? "bg-emerald-500"
+                    : status === "current"
+                    ? "bg-primary"
+                    : "bg-muted-foreground/40";
+                const containerClass =
+                  status === "current"
+                    ? "border-primary/70 bg-primary/5"
+                    : status === "completed"
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-border";
+                return (
+                  <li
+                    key={pose.label}
+                    className={`flex items-start gap-3 rounded-md border px-3 py-2 text-sm ${containerClass}`}
+                  >
+                    <span
+                      className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${indicatorClass}`}
+                    />
+                    <div>
+                      <p className="font-medium">
+                        {index + 1}. {pose.label}
+                        {status === "completed" && " (selesai)"}
+                        {status === "current" && " (sedang diambil)"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{pose.description}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="text-xs text-muted-foreground">
+              Pastikan ruangan terang merata, kamera tidak goyang, dan wajah berada di tengah bingkai.
+            </div>
           </div>
 
           {/* Error Message */}
@@ -334,7 +420,7 @@ export function FaceRegistrationModal({
             >
               {isCapturing && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
               <Camera className="mr-2 w-4 h-4" />
-              Ambil Foto ({capturedDescriptors.length}/{targetCaptures})
+              {captureButtonLabel}
             </Button>
           ) : (
             <Button
