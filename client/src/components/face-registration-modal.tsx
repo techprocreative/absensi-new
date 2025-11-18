@@ -22,6 +22,11 @@ interface FaceRegistrationModalProps {
   employee: any;
 }
 
+type CapturedDescriptor = {
+  vector: number[];
+  confidence: number;
+};
+
 export function FaceRegistrationModal({
   open,
   onOpenChange,
@@ -34,7 +39,7 @@ export function FaceRegistrationModal({
 
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [capturedDescriptors, setCapturedDescriptors] = useState<number[][]>([]);
+  const [capturedDescriptors, setCapturedDescriptors] = useState<CapturedDescriptor[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -42,7 +47,7 @@ export function FaceRegistrationModal({
   const progress = (capturedDescriptors.length / targetCaptures) * 100;
 
   const registerMutation = useMutation({
-    mutationFn: (descriptors: number[][]) =>
+    mutationFn: (descriptors: CapturedDescriptor[]) =>
       employeeApi.registerFace(employee.id, descriptors),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
@@ -169,8 +174,11 @@ export function FaceRegistrationModal({
         faceapi.draw.drawFaceLandmarks(canvas, [resizedDetection]);
       }
 
-      // Store descriptor
-      const descriptor = Array.from(detection.descriptor);
+      // Store descriptor with confidence metadata
+      const descriptor: CapturedDescriptor = {
+        vector: Array.from(detection.descriptor),
+        confidence: detection.detection.score,
+      };
       setCapturedDescriptors((prev) => [...prev, descriptor]);
 
       toast({

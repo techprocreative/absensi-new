@@ -13,6 +13,13 @@ import {
 import { authMiddleware, requireRole, generateToken, type AuthRequest } from "./middleware/auth";
 import { authRateLimiter } from "./middleware/security";
 import { hashPassword, comparePassword, validatePassword } from "./utils/password";
+import {
+  createFaceProfilePayload,
+  extractFaceVectors,
+  prepareDescriptorForComparison,
+  FaceDataError,
+  euclideanDistance,
+} from "./utils/faceData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
@@ -144,13 +151,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/employees/:id/face", authMiddleware, requireRole("admin", "hrd"), async (req, res) => {
     try {
       const { descriptors } = req.body;
-      
-      if (!descriptors || !Array.isArray(descriptors)) {
-        return res.status(400).json({ error: "Face descriptors tidak valid" });
+
+      const employee = await storage.getEmployee(req.params.id);
+      if (!employee) {
+        return res.status(404).json({ error: "Karyawan tidak ditemukan" });
       }
 
+      const faceProfile = createFaceProfilePayload(
+        descriptors,
+        employee.faceDescriptors,
+      );
+
       const updated = await storage.updateEmployee(req.params.id, {
-        faceDescriptors: descriptors
+        faceDescriptors: faceProfile,
       });
 
       if (!updated) {
@@ -159,6 +172,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updated);
     } catch (error) {
+      if (error instanceof FaceDataError) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Register face error:", error);
       res.status(500).json({ error: "Terjadi kesalahan saat registrasi wajah" });
     }
@@ -166,11 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/attendance/recognize", async (req, res) => {
     try {
-      const { descriptor } = req.body;
-      
-      if (!descriptor || !Array.isArray(descriptor)) {
-        return res.status(400).json({ error: "Face descriptor tidak valid" });
-      }
+      const normalizedDescriptor = prepareDescriptorForComparison(
+        req.body?.descriptor,
+      );
 
       const employees = await storage.getAllEmployees(true);
       
@@ -178,13 +192,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const MATCH_THRESHOLD = 0.6;
 
       for (const employee of employees) {
-        if (employee.faceDescriptors && Array.isArray(employee.faceDescriptors)) {
-          for (const storedDescriptor of employee.faceDescriptors) {
-            const distance = euclideanDistance(descriptor, storedDescriptor);
-            
-            if (distance < MATCH_THRESHOLD && (!bestMatch || distance < bestMatch.distance)) {
-              bestMatch = { employee, distance };
-            }
+        const storedVectors = extractFaceVectors(employee.faceDescriptors);
+        if (!storedVectors.length) {
+          continue;
+        }
+
+        for (const storedVector of storedVectors) {
+          const distance = euclideanDistance(normalizedDescriptor, storedVector);
+          
+          if (distance < MATCH_THRESHOLD && (!bestMatch || distance < bestMatch.distance)) {
+            bestMatch = { employee, distance };
           }
         }
       }
@@ -201,6 +218,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confidence: 1 - bestMatch.distance
       });
     } catch (error) {
+      if (error instanceof FaceDataError) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Face recognition error:", error);
       res.status(500).json({ error: "Terjadi kesalahan saat mengenali wajah" });
     }
@@ -791,18 +811,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   return httpServer;
-}
-
-function euclideanDistance(arr1: number[], arr2: number[]): number {
-  if (arr1.length !== arr2.length) {
-    return Infinity;
-  }
-  
-  let sum = 0;
-  for (let i = 0; i < arr1.length; i++) {
-    const diff = arr1[i] - arr2[i];
-    sum += diff * diff;
-  }
-  
-  return Math.sqrt(sum);
 }
