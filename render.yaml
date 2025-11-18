@@ -40,3 +40,5 @@ services:
         value: "false"
       - key: DISABLE_RATE_LIMIT
         value: "false"
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
