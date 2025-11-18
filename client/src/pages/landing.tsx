@@ -22,10 +22,10 @@ import { useLocation } from "wouter";
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
   const [recognizedEmployee, setRecognizedEmployee] = useState<any>(null);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isRecognitionLocked, setIsRecognitionLocked] = useState(false);
   const lastRecognitionAttempt = useRef<number>(0);
 
   useEffect(() => {
@@ -60,11 +60,13 @@ export default function Landing() {
     onSuccess: (data) => {
       setRecognizedEmployee(data.employee);
       setTodayAttendance(data.attendance);
+      setIsRecognitionLocked(true);
     },
     onError: () => {
       setMessage({ type: "error", text: "Wajah tidak dikenali. Pastikan Anda sudah terdaftar." });
       setRecognizedEmployee(null);
       setTodayAttendance(null);
+      setIsRecognitionLocked(false);
     }
   });
 
@@ -126,9 +128,15 @@ export default function Landing() {
     }
   });
 
+  const handleResetRecognition = () => {
+    setIsRecognitionLocked(false);
+    setRecognizedEmployee(null);
+    setTodayAttendance(null);
+  };
+
   const handleFaceDetected = (descriptor: Float32Array) => {
-    setFaceDescriptor(descriptor);
-    
+    if (isRecognitionLocked) return;
+
     const now = Date.now();
     if (now - lastRecognitionAttempt.current > 2000 && !recognizeMutation.isPending) {
       lastRecognitionAttempt.current = now;
@@ -262,7 +270,7 @@ export default function Landing() {
 
           <FaceCamera
             onFaceDetected={handleFaceDetected}
-            isCapturing={true}
+            isCapturing={!isRecognitionLocked}
             className="w-full max-w-2xl mx-auto"
           />
 
@@ -368,6 +376,16 @@ export default function Landing() {
                   Anda telah selesai bekerja hari ini. Sampai jumpa besok!
                 </AlertDescription>
               </Alert>
+            )}
+
+            {isRecognitionLocked && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleResetRecognition}
+              >
+                Scan Ulang
+              </Button>
             )}
           </div>
         </div>
