@@ -1,5 +1,4 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -21,7 +20,7 @@ import {
   euclideanDistance,
 } from "./utils/faceData";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): void {
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -210,7 +209,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Wajah tidak dikenali" });
       }
 
-      const todayAttendance = await storage.getTodayAttendance(bestMatch.employee.id);
+      // Use employeeId (kode karyawan) consistently for attendance lookups
+      const todayAttendance = await storage.getTodayAttendance(bestMatch.employee.employeeId);
 
       res.json({
         employee: bestMatch.employee,
@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { employeeId } = req.body;
       
-      const employee = await storage.getEmployee(employeeId);
+      const employee = await storage.getEmployeeByEmployeeId(employeeId);
       if (!employee) {
         return res.status(404).json({ error: "Karyawan tidak ditemukan" });
       }
@@ -807,8 +807,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Terjadi kesalahan saat mengambil data target sales" });
     }
   });
-
-  const httpServer = createServer(app);
-
-  return httpServer;
 }

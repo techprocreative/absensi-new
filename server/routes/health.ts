@@ -4,7 +4,7 @@ import { storage } from "../storage";
 export function registerHealthRoutes(app: Express) {
   /**
    * @swagger
-   * /health:
+   * /api/health:
    *   get:
    *     tags: [Health]
    *     summary: Basic health check
@@ -27,7 +27,7 @@ export function registerHealthRoutes(app: Express) {
    *                   type: number
    *                   description: Uptime in seconds
    */
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/api/health", (req: Request, res: Response) => {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
@@ -38,7 +38,7 @@ export function registerHealthRoutes(app: Express) {
 
   /**
    * @swagger
-   * /health/ready:
+   * /api/health/ready:
    *   get:
    *     tags: [Health]
    *     summary: Readiness check
@@ -49,7 +49,7 @@ export function registerHealthRoutes(app: Express) {
    *       503:
    *         description: Service is not ready
    */
-  app.get("/health/ready", async (req: Request, res: Response) => {
+  app.get("/api/health/ready", async (req: Request, res: Response) => {
     try {
       // Test database connection by attempting a simple query
       await storage.getAllEmployees();
@@ -77,7 +77,7 @@ export function registerHealthRoutes(app: Express) {
 
   /**
    * @swagger
-   * /health/live:
+   * /api/health/live:
    *   get:
    *     tags: [Health]
    *     summary: Liveness check
@@ -86,7 +86,7 @@ export function registerHealthRoutes(app: Express) {
    *       200:
    *         description: Service is alive
    */
-  app.get("/health/live", (req: Request, res: Response) => {
+  app.get("/api/health/live", (req: Request, res: Response) => {
     res.json({
       status: "alive",
       timestamp: new Date().toISOString(),
