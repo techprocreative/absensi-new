@@ -1,7 +1,24 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+
+  // In non-production environments, allow a default development secret
+  if (!secret && process.env.NODE_ENV !== "production") {
+    return "dev-secret-key";
+  }
+
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable must be set in production");
+  }
+
+  if (process.env.NODE_ENV === "production" && secret.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters long in production");
+  }
+
+  return secret;
+})();
 
 export interface AuthRequest extends Request {
   user?: {

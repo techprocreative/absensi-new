@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { employeeId } = req.body;
       
-      const employee = await storage.getEmployee(employeeId);
+      const employee = await storage.getEmployeeByEmployeeId(employeeId);
       if (!employee) {
         return res.status(404).json({ error: "Karyawan tidak ditemukan" });
       }
