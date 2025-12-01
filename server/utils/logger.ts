@@ -39,8 +39,13 @@ const logger = winston.createLogger({
   ],
 });
 
-// Add file transports only in production or if explicitly enabled
-if (process.env.NODE_ENV === "production" || process.env.ENABLE_FILE_LOGGING === "true") {
+// Add file transports only in production or if explicitly enabled.
+// Skip file logging on serverless platforms like Vercel (VERCEL env is set).
+if (
+  (process.env.NODE_ENV === "production" ||
+    process.env.ENABLE_FILE_LOGGING === "true") &&
+  !process.env.VERCEL
+) {
   logger.add(
     new winston.transports.File({
       filename: path.join(logDir, "error.log"),

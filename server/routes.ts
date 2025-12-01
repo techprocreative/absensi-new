@@ -1,5 +1,4 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -21,7 +20,7 @@ import {
   euclideanDistance,
 } from "./utils/faceData";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): void {
   app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -808,8 +807,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Terjadi kesalahan saat mengambil data target sales" });
     }
   });
-
-  const httpServer = createServer(app);
-
-  return httpServer;
 }
